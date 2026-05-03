@@ -1,14 +1,28 @@
 # AI YouTube Shorts Generator
 
-AI-powered tool to automatically generate engaging YouTube Shorts from long-form videos. Uses GPT-class LLM highlight detection and Whisper to extract the most viral-worthy moments and crop them vertically for social media.
+**The open-source alternative to Opus Clip, Vidyo.ai, Klap, SubMagic, 2short.ai, and other AI clipping tools.** Drop in any long-form YouTube video and get back ranked, viral-ready 9:16 shorts — for free, with no per-clip credits, no watermarks, and full control over the highlight algorithm.
 
-Looking for an api to build your own Opus-clip style product ? Check the api below
+Built for creators, agencies, and developers who don't want to pay $20–$300/month or be capped on minutes processed. Uses GPT-class LLM highlight detection and Whisper transcription to extract the most viral-worthy moments and auto-crop them vertically for TikTok, Reels, and Shorts.
 
-https://muapi.ai/playground/autocrop
-
-https://muapi.ai/playground/ai-clipping
+> **Building your own Opus Clip–style SaaS?** Skip the infra and ship on the same APIs that power this repo:
+> - [AI Clipping API](https://muapi.ai/playground/ai-clipping) — end-to-end clip selection + render
+> - [Auto-Crop API](https://muapi.ai/playground/autocrop) — vertical reframing only
 
 ![longshorts](https://github.com/user-attachments/assets/3f5d1abf-bf3b-475f-8abf-5e253003453a)
+
+## Why Use This Instead of Opus Clip / Vidyo.ai / Klap?
+
+| | This repo | Opus Clip / Vidyo.ai / Klap / SubMagic |
+|---|---|---|
+| **Price** | Free + open source (pay only for API usage) | $20–$300/month subscriptions |
+| **Per-clip credits** | None — process unlimited videos | Monthly minute caps, overage fees |
+| **Watermarks** | Never | On free tiers |
+| **Highlight algorithm** | Fully editable virality framework | Black box |
+| **Output format** | Any aspect ratio, any resolution | Locked presets |
+| **Batch processing** | `xargs` an entire URL list | Manual upload one-by-one |
+| **JSON / API output** | Built-in (`--output-json`) | Limited or paid tier only |
+| **Self-hostable** | Yes — runs on your machine or server | SaaS only, your videos sit on their servers |
+| **White-label / embeddable** | Yes — MIT licensed, import as Python lib | No |
 
 ## Features
 
@@ -25,7 +39,7 @@ https://muapi.ai/playground/ai-clipping
 
 ## Quick Start (No Setup)
 
-Want better results without the setup? The [AI Clipping API](https://muapi.ai/playground/ai-clipping) offers improved clip selection, faster processing, and no dependencies to manage.
+Don't want to self-host? The [AI Clipping API](https://muapi.ai/playground/ai-clipping) gives you the same Opus Clip–style pipeline as a single HTTP call — no Python, no dependencies, pay-per-clip instead of monthly subscriptions.
 
 ---
 
