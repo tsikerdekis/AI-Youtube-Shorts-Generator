@@ -86,9 +86,13 @@ def _resolve_device() -> str:
         return LOCAL_WHISPER_DEVICE
     try:
         import torch  # type: ignore
-        return "cuda" if torch.cuda.is_available() else "cpu"
-    except ImportError:
-        return "cpu"
+        if torch.cuda.is_available():
+            # Test that CUDA actually works (catches missing cuBLAS/cuDNN libs)
+            torch.zeros(1, device="cuda")
+            return "cuda"
+    except (ImportError, OSError, RuntimeError):
+        pass
+    return "cpu"
 
 
 def transcribe_local(media_path: str, language: Optional[str] = None) -> Dict:
@@ -100,12 +104,17 @@ def transcribe_local(media_path: str, language: Optional[str] = None) -> Dict:
         if cache_mtime >= source_mtime:
             print(f"[transcribe/local] reusing cached transcript: {cache_path}", flush=True)
             cached = _load_srt_cache(cache_path)
-            print(
-                f"[transcribe/local] {len(cached['segments'])} cached segments, "
-                f"{cached['duration']:.0f}s of audio",
-                flush=True,
-            )
-            return cached
+            # Treat empty cache as invalid (likely from a failed/partial run) — delete and re-transcribe
+            if not cached["segments"] or cached["duration"] <= 0.0:
+                print(f"[transcribe/local] cache is empty/invalid, deleting: {cache_path}", flush=True)
+                cache_path.unlink(missing_ok=True)
+            else:
+                print(
+                    f"[transcribe/local] {len(cached['segments'])} cached segments, "
+                    f"{cached['duration']:.0f}s of audio",
+                    flush=True,
+                )
+                return cached
 
     try:
         from faster_whisper import WhisperModel  # type: ignore
@@ -119,14 +128,23 @@ def transcribe_local(media_path: str, language: Optional[str] = None) -> Dict:
     compute_type = "float16" if device == "cuda" else "int8"
     print(f"[transcribe/local] faster-whisper model={LOCAL_WHISPER_MODEL} device={device}", flush=True)
 
+    from ..config import LOCAL_WHISPER_VAD_FILTER, LOCAL_WHISPER_VAD_PARAMETERS
+
     model = WhisperModel(LOCAL_WHISPER_MODEL, device=device, compute_type=compute_type)
-    segments_iter, info = model.transcribe(
-        media_path,
-        language=language,
-        beam_size=5,
-        vad_filter=True,
-        condition_on_previous_text=False,
-    )
+
+    transcribe_kwargs = {
+        "audio": media_path,
+        "language": language,
+        "beam_size": 5,
+        "condition_on_previous_text": False,
+    }
+    if LOCAL_WHISPER_VAD_FILTER:
+        transcribe_kwargs["vad_filter"] = True
+        transcribe_kwargs["vad_parameters"] = LOCAL_WHISPER_VAD_PARAMETERS
+    else:
+        transcribe_kwargs["vad_filter"] = False
+
+    segments_iter, info = model.transcribe(**transcribe_kwargs)
 
     segments = []
     for s in segments_iter:
