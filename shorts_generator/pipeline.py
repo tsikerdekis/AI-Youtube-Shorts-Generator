@@ -3,8 +3,8 @@
 Two modes:
   * mode="api"   (default) — MuAPI does download / transcribe / LLM / autocrop.
                               Fast, no local deps, pay-per-call.
-  * mode="local"            — yt-dlp + faster-whisper + OpenAI or Gemini + ffmpeg/opencv.
-                              Self-hosted, LLM_PROVIDER selects OpenAI or Gemini.
+  * mode="local"            — yt-dlp + faster-whisper + OpenAI / Gemini / Ollama + ffmpeg/opencv.
+                              Self-hosted, LLM_PROVIDER selects OpenAI, Gemini, or Ollama.
 """
 from typing import Dict, List, Optional
 

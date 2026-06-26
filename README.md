@@ -92,11 +92,14 @@ Don't want to self-host? The [AI Clipping API](https://muapi.ai/playground/ai-cl
    MUAPI_API_KEY=your_muapi_key_here
 
    # Local mode (--mode local)
-   LLM_PROVIDER=openai         # openai or gemini
+   LLM_PROVIDER=openai         # openai, gemini, or ollama
    OPENAI_API_KEY=your_openai_key_here
    OPENAI_MODEL=gpt-4o-mini          # optional, default gpt-4o-mini
    GEMINI_API_KEY=your_gemini_key_here
    GEMINI_MODEL=gemini-2.5-flash      # optional, default gemini-2.5-flash
+   # Ollama settings (when LLM_PROVIDER=ollama)
+   OLLAMA_BASE_URL=http://localhost:11434   # local or remote Ollama endpoint
+   OLLAMA_MODEL=llama3.2                    # any model pulled in Ollama
    LOCAL_WHISPER_MODEL=base          # tiny / base / small / medium / large-v3
    LOCAL_WHISPER_DEVICE=auto         # auto / cpu / cuda
    LOCAL_OUTPUT_DIR=output           # where local mp4s land
@@ -185,10 +188,10 @@ xargs -a urls.txt -I{} python main.py "{}"
 |---|---|---|
 | Download | MuAPI `/youtube-download` | `yt-dlp` for remote URLs, direct file path for local inputs |
 | Transcription | MuAPI `/openai-whisper` | `faster-whisper` (CPU or CUDA) |
-| Highlight LLM | MuAPI `gpt-5-mini` | `LLM_PROVIDER=openai` uses OpenAI (`gpt-4o-mini` by default), `LLM_PROVIDER=gemini` uses Gemini (`gemini-2.5-flash` by default) |
+| Highlight LLM | MuAPI `gpt-5-mini` | `LLM_PROVIDER=openai` uses OpenAI (`gpt-4o-mini` by default), `LLM_PROVIDER=gemini` uses Gemini (`gemini-2.5-flash` by default), `LLM_PROVIDER=ollama` uses any Ollama model (local or remote) |
 | Vertical crop | MuAPI `/autocrop` | `ffmpeg` + OpenCV face tracking |
 | Output | hosted URLs | local mp4 paths |
-| Required keys | `MUAPI_API_KEY` | `OPENAI_API_KEY` or `GEMINI_API_KEY` (+ `ffmpeg` on PATH) |
+| Required keys | `MUAPI_API_KEY` | `OPENAI_API_KEY`, `GEMINI_API_KEY`, or Ollama endpoint (+ `ffmpeg` on PATH) |
 
 ## How It Works
 
@@ -243,6 +246,49 @@ Highlights:    7 candidates → kept top 3
 
 ## Configuration
 
+### Ollama (fully local / self-hosted LLM)
+
+Set `LLM_PROVIDER=ollama` to run highlight ranking through any Ollama-compatible endpoint — your laptop, a LAN server, or a cloud GPU instance (RunPod, Vast.ai, etc.).
+
+1. **Install Ollama** (if running locally): https://ollama.com/download
+2. **Pull a model** (see model recommendations below):
+   ```bash
+   ollama pull llama3.2
+   ```
+3. **Configure `.env`**:
+   ```bash
+   LLM_PROVIDER=ollama
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=llama3.2
+   ```
+4. **Run**:
+   ```bash
+   python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --mode local
+   ```
+
+**Remote Ollama example** (e.g. on a cloud GPU):
+```bash
+OLLAMA_BASE_URL=http://192.168.1.50:11434 OLLAMA_MODEL=phi4 python main.py "..." --mode local
+```
+
+**Recommended models for an 8 GB GPU**
+
+| Model | Size | Notes |
+|-------|------|-------|
+| `llama3.2` | 3B | Fast, good instruction following, fits easily on 8 GB |
+| `phi4` | ~14B (Q4_K_M ≈ 8.5 GB) | Strong reasoning; may need `--num_gpu 1` on 8 GB |
+| `qwen2.5` | 7B (Q4 ≈ 4.5 GB) | Excellent multilingual, great JSON adherence |
+| `gemma3` | 4B (Q4 ≈ 3 GB) | Google's lightweight model, solid quality |
+| `mistral` | 7B (Q4 ≈ 4.1 GB) | Good general performance, fast inference |
+| `deepseek-r1:7b` | 7B (Q4 ≈ 4.5 GB) | Reasoning-focused, slower but thorough |
+
+**Cloud / hosted Ollama options**
+
+If you don't have a local GPU, you can point `OLLAMA_BASE_URL` at:
+- **RunPod** Serverless or Pod with Ollama pre-installed
+- **Vast.ai** — rent an RTX 3090/4090 by the hour (~$0.30–$0.60/hr)
+- **AnyScale Endpoints** or **Together AI** — OpenAI-compatible APIs that serve open-weight models (set `LLM_PROVIDER=openai` and point `OPENAI_BASE_URL` at their endpoint)
+
 ### Highlight selection criteria
 Edit `shorts_generator/highlights.py`:
 - **Virality framework**: `VIRALITY_CRITERIA` — the ranked list of signals the LLM optimizes for
@@ -278,7 +324,7 @@ AI-Youtube-Shorts-Generator/
     └── local/                    --mode local backends (offline)
         ├── downloader.py         yt-dlp download
         ├── transcriber.py        faster-whisper transcription
-        ├── llm.py                OpenAI or Gemini client selector
+        ├── llm.py                OpenAI / Gemini / Ollama client selector
         └── clipper.py            ffmpeg cut + OpenCV vertical crop
 ```
 
