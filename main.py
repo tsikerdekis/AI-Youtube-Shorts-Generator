@@ -32,6 +32,12 @@ def main() -> int:
     parser.add_argument("--format", default="720", help="Source download resolution: 360 / 480 / 720 / 1080 (default: 720)")
     parser.add_argument("--language", default=None, help="Force Whisper language code, e.g. 'en' (default: auto-detect)")
     parser.add_argument("--output-json", default=None, help="Write the full result JSON to this path")
+    parser.add_argument(
+        "--crop-mode",
+        choices=["face", "shot"],
+        default="face",
+        help="Local mode only: 'face' (default, face-tracking) or 'shot' (shot-aware action centering)",
+    )
     args = parser.parse_args()
 
     try:
@@ -42,6 +48,7 @@ def main() -> int:
             download_format=args.format,
             language=args.language,
             mode=args.mode,
+            crop_mode=args.crop_mode,
         )
     except Exception as e:
         print(f"\nFAILED: {e}", file=sys.stderr)

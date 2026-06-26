@@ -121,6 +121,16 @@ python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --mode local
 
 Local mode writes the rendered shorts to `./output/short_01.mp4`, `short_02.mp4`, … (override with `LOCAL_OUTPUT_DIR`).
 
+### Shot-aware cropping (local mode)
+
+When your video has distinct camera cuts or angle changes (e.g. switching between wide shots, close-ups, and different subjects), the default face-tracking crop can drift or shake as it adjusts mid-shot. Use `--crop-mode shot` to detect shot boundaries and lock the crop center to the main action area within each shot:
+
+```bash
+python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --mode local --crop-mode shot
+```
+
+This analyzes motion per shot, finds where the most activity happens, and keeps the crop locked there until the next cut. No mid-shot drift — ideal for stationary shots where you want the action centered per scene.
+
 ### With options
 
 ```bash
@@ -180,6 +190,7 @@ xargs -a urls.txt -I{} python main.py "{}"
 | `--aspect-ratio` | `9:16` | Any ratio; `9:16` for TikTok/Reels, `1:1` for square |
 | `--format` | `720` | Source download resolution: `360` / `480` / `720` / `1080` |
 | `--language` | auto | Force Whisper language code (e.g. `en`) |
+| `--crop-mode` | `face` | Local mode only: `face` (face-tracking) or `shot` (shot-aware action centering) |
 | `--output-json` | — | Dump the full result (transcript + all candidates) to a file |
 
 ### API mode vs Local mode
