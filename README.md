@@ -100,6 +100,8 @@ Don't want to self-host? The [AI Clipping API](https://muapi.ai/playground/ai-cl
    # Ollama settings (when LLM_PROVIDER=ollama)
    OLLAMA_BASE_URL=http://localhost:11434   # local or remote Ollama endpoint
    OLLAMA_MODEL=llama3.2                    # any model pulled in Ollama
+   # OLLAMA_NUM_CTX=32768                   # context window size in tokens (default 32768)
+   # CLIP_LENGTH=45                         # optional: target clip length in seconds (±5s tolerance)
    LOCAL_WHISPER_MODEL=base          # tiny / base / small / medium / large-v3
    LOCAL_WHISPER_DEVICE=auto         # auto / cpu / cuda
    LOCAL_OUTPUT_DIR=output           # where local mp4s land
@@ -201,6 +203,7 @@ xargs -a urls.txt -I{} python main.py "{}"
 |------|---------|-------|
 | `--mode` | `api` | `api` (MuAPI, fast, no setup) or `local` (remote URL, `file://`, or local path + faster-whisper + LLM provider + ffmpeg) |
 | `--num-clips` | `3` | How many shorts to render |
+| `--clip-length` | — | Optional: target clip length in seconds (±5s tolerance). Default behavior is 45–90s sweet spot |
 | `--aspect-ratio` | `9:16` | Any ratio; `9:16` for TikTok/Reels, `1:1` for square |
 | `--format` | `720` | Source download resolution: `360` / `480` / `720` / `1080` |
 | `--language` | auto | Force Whisper language code (e.g. `en`) |
@@ -328,6 +331,23 @@ If you don't have a local GPU, you can point `OLLAMA_BASE_URL` at:
 - **RunPod** Serverless or Pod with Ollama pre-installed
 - **Vast.ai** — rent an RTX 3090/4090 by the hour (~$0.30–$0.60/hr)
 - **AnyScale Endpoints** or **Together AI** — OpenAI-compatible APIs that serve open-weight models (set `LLM_PROVIDER=openai` and point `OPENAI_BASE_URL` at their endpoint)
+
+### Clip length
+
+By default the LLM uses a **45–90 second** sweet spot for highlights, which works well for most content. If you want tighter control, set `CLIP_LENGTH` (in seconds) and the LLM will aim for that length with a ±5-second tolerance. A value of `30` produces 25–35s clips and `10` produces 5–15s clips.
+
+```bash
+# .env
+CLIP_LENGTH=30
+```
+
+Or pass it per-run:
+
+```bash
+python main.py "..." --mode local --clip-length 30
+```
+
+Shorter values (10–20) are great for quick hooks; longer values (60–90) suit tutorials or story arcs. Leave it unset to keep the original 45–90s behavior.
 
 ### Highlight selection criteria
 Edit `shorts_generator/highlights.py`:

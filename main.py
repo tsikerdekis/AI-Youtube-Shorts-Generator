@@ -28,6 +28,7 @@ def main() -> int:
         help="api (default, MuAPI) or local (remote URL, file://, or local path + faster-whisper + LLM provider + ffmpeg).",
     )
     parser.add_argument("--num-clips", type=int, default=3, help="How many shorts to render (default: 3)")
+    parser.add_argument("--clip-length", type=int, default=None, help="Target clip length in seconds (±5s tolerance, default: 45)")
     parser.add_argument("--aspect-ratio", default="9:16", help="Output aspect ratio (default: 9:16)")
     parser.add_argument("--format", default="720", help="Source download resolution: 360 / 480 / 720 / 1080 (default: 720)")
     parser.add_argument("--language", default=None, help="Force Whisper language code, e.g. 'en' (default: auto-detect)")
@@ -50,6 +51,7 @@ def main() -> int:
         result = generate_shorts(
             youtube_url=args.url,
             num_clips=args.num_clips,
+            clip_length=args.clip_length,
             aspect_ratio=args.aspect_ratio,
             download_format=args.format,
             language=args.language,

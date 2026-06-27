@@ -22,6 +22,7 @@ def _run_local(
     language: Optional[str],
     crop_mode: str = "face",
     captions: bool = False,
+    clip_length: Optional[int] = None,
 ) -> Dict:
     from .local.clipper import crop_highlights_local
     from .local.downloader import download_youtube_local
@@ -36,7 +37,7 @@ def _run_local(
             "Whisper produced no segments. The video may have no detectable speech."
         )
 
-    highlights_result = get_highlights(transcript, num_clips=num_clips, llm_fn=call_local_llm)
+    highlights_result = get_highlights(transcript, num_clips=num_clips, clip_length=clip_length, llm_fn=call_local_llm)
     all_highlights: List[Dict] = highlights_result.get("highlights", [])
     if not all_highlights:
         raise RuntimeError("Highlight generator returned zero clips.")
@@ -64,6 +65,7 @@ def _run_api(
     aspect_ratio: str,
     download_format: str,
     language: Optional[str],
+    clip_length: Optional[int] = None,
 ) -> Dict:
     source_url = download_youtube(youtube_url, fmt=download_format)
 
@@ -73,7 +75,7 @@ def _run_api(
             "Whisper produced no segments. The video may have no detectable speech."
         )
 
-    highlights_result = get_highlights(transcript, num_clips=num_clips, llm_fn=call_muapi_llm)
+    highlights_result = get_highlights(transcript, num_clips=num_clips, clip_length=clip_length, llm_fn=call_muapi_llm)
     all_highlights: List[Dict] = highlights_result.get("highlights", [])
     if not all_highlights:
         raise RuntimeError("Highlight generator returned zero clips.")
@@ -95,6 +97,7 @@ def _run_api(
 def generate_shorts(
     youtube_url: str,
     num_clips: int = 3,
+    clip_length: Optional[int] = None,
     aspect_ratio: str = "9:16",
     download_format: str = "720",
     language: Optional[str] = None,
@@ -107,6 +110,7 @@ def generate_shorts(
     Args:
         youtube_url: source URL.
         num_clips: how many shorts to render.
+        clip_length: target clip length in seconds (±5s tolerance). Default 45.
         aspect_ratio: e.g. "9:16", "1:1".
         download_format: source resolution ("360" / "480" / "720" / "1080").
         language: ISO-639-1 to force Whisper language detection.
@@ -129,7 +133,7 @@ def generate_shorts(
     """
     mode = (mode or "api").lower()
     if mode == "local":
-        return _run_local(youtube_url, num_clips, aspect_ratio, download_format, language, crop_mode=crop_mode, captions=captions)
+        return _run_local(youtube_url, num_clips, aspect_ratio, download_format, language, crop_mode=crop_mode, captions=captions, clip_length=clip_length)
     if mode == "api":
-        return _run_api(youtube_url, num_clips, aspect_ratio, download_format, language)
+        return _run_api(youtube_url, num_clips, aspect_ratio, download_format, language, clip_length=clip_length)
     raise ValueError(f"Unknown mode: {mode!r}. Use 'api' or 'local'.")
