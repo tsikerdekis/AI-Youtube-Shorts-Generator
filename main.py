@@ -45,6 +45,12 @@ def main() -> int:
         default=False,
         help="Burn transcript captions into the output clips (local mode only, default: off)",
     )
+    parser.add_argument(
+        "--generate-metadata",
+        action="store_true",
+        default=False,
+        help="Generate YouTube + TikTok titles, descriptions, and hashtags for each short (default: off)",
+    )
     args = parser.parse_args()
 
     try:
@@ -58,6 +64,7 @@ def main() -> int:
             mode=args.mode,
             crop_mode=args.crop_mode,
             captions=args.captions,
+            generate_metadata=args.generate_metadata,
         )
     except Exception as e:
         print(f"\nFAILED: {e}", file=sys.stderr)
@@ -67,11 +74,17 @@ def main() -> int:
     print(f"Mode:          {result.get('mode', args.mode)}")
     print(f"Source video:  {result['source_video_url']}")
     print(f"Highlights:    {len(result['highlights'])} candidates → kept top {len(result['shorts'])}")
+    if result.get("metadata_file"):
+        print(f"Metadata file: {result['metadata_file']}")
     print("=" * 72)
     for i, s in enumerate(result["shorts"], 1):
         print(f"\n#{i}  score={s.get('score')}  {s.get('start_time'):.1f}s → {s.get('end_time'):.1f}s")
         print(f"     title:  {s.get('title')}")
         print(f"     hook:   {s.get('hook_sentence')}")
+        if s.get("youtube_title"):
+            print(f"     YT:     {s['youtube_title']}")
+        if s.get("tiktok_caption"):
+            print(f"     TT:     {s['tiktok_caption']}")
         if s.get("clip_url"):
             print(f"     clip:   {s['clip_url']}")
         else:

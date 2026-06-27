@@ -209,6 +209,7 @@ xargs -a urls.txt -I{} python main.py "{}"
 | `--language` | auto | Force Whisper language code (e.g. `en`) |
 | `--crop-mode` | `face` | Local mode only: `face` (face-tracking) or `shot` (shot-aware action centering) |
 | `--captions` | off | Local mode only: burn transcript captions into the output clips |
+| `--generate-metadata` | off | Generate YouTube + TikTok titles, descriptions, and hashtags for each short |
 | `--output-json` | — | Dump the full result (transcript + all candidates) to a file |
 
 ### API mode vs Local mode
@@ -348,6 +349,22 @@ python main.py "..." --mode local --clip-length 30
 ```
 
 Shorter values (10–20) are great for quick hooks; longer values (60–90) suit tutorials or story arcs. Leave it unset to keep the original 45–90s behavior.
+
+### Metadata generation
+
+Generate platform-specific titles and descriptions for each short by passing `--generate-metadata`:
+
+```bash
+python main.py "..." --mode local --generate-metadata
+```
+
+This produces a `shorts_metadata.txt` file alongside the clips with:
+- **YouTube title** (max 60 chars)
+- **YouTube description** (2–3 sentences + hashtags)
+- **TikTok caption** (max 100 chars, emoji-friendly)
+- **TikTok hashtags** (5–8 relevant tags)
+
+The metadata is grounded in the clip's actual transcript, hook sentence, and virality reason. Default is off to save LLM tokens and time.
 
 ### Highlight selection criteria
 Edit `shorts_generator/highlights.py`:

@@ -6,11 +6,13 @@ Two modes:
   * mode="local"            — yt-dlp + faster-whisper + OpenAI / Gemini / Ollama + ffmpeg/opencv.
                               Self-hosted, LLM_PROVIDER selects OpenAI, Gemini, or Ollama.
 """
+import os
 from typing import Dict, List, Optional
 
 from .clipper import crop_highlights
 from .downloader import download_youtube
 from .highlights import call_muapi_llm, get_highlights
+from .metadata import generate_all_metadata, write_metadata_file
 from .transcriber import transcribe
 
 
@@ -23,6 +25,7 @@ def _run_local(
     crop_mode: str = "face",
     captions: bool = False,
     clip_length: Optional[int] = None,
+    generate_metadata: bool = False,
 ) -> Dict:
     from .local.clipper import crop_highlights_local
     from .local.downloader import download_youtube_local
@@ -50,12 +53,23 @@ def _run_local(
         captions=captions, transcript_segments=transcript.get("segments"),
     )
 
+    if generate_metadata:
+        shorts = generate_all_metadata(
+            shorts, transcript.get("segments", []), llm_fn=call_local_llm
+        )
+        meta_path = os.path.join(
+            os.path.dirname(source_path) if os.path.dirname(source_path) else ".",
+            "shorts_metadata.txt"
+        )
+        write_metadata_file(shorts, meta_path, source_url=youtube_url)
+
     return {
         "mode": "local",
         "source_video_url": source_path,
         "transcript": transcript,
         "highlights": all_highlights,
         "shorts": shorts,
+        "metadata_file": meta_path if generate_metadata else None,
     }
 
 
@@ -66,6 +80,7 @@ def _run_api(
     download_format: str,
     language: Optional[str],
     clip_length: Optional[int] = None,
+    generate_metadata: bool = False,
 ) -> Dict:
     source_url = download_youtube(youtube_url, fmt=download_format)
 
@@ -85,12 +100,23 @@ def _run_api(
 
     shorts = crop_highlights(source_url, top, aspect_ratio=aspect_ratio)
 
+    if generate_metadata:
+        shorts = generate_all_metadata(
+            shorts, transcript.get("segments", []), llm_fn=call_muapi_llm
+        )
+        meta_path = os.path.join(
+            os.path.dirname(source_url) if os.path.dirname(source_url) else ".",
+            "shorts_metadata.txt"
+        )
+        write_metadata_file(shorts, meta_path, source_url=youtube_url)
+
     return {
         "mode": "api",
         "source_video_url": source_url,
         "transcript": transcript,
         "highlights": all_highlights,
         "shorts": shorts,
+        "metadata_file": meta_path if generate_metadata else None,
     }
 
 
@@ -104,6 +130,7 @@ def generate_shorts(
     mode: str = "api",
     crop_mode: str = "face",
     captions: bool = False,
+    generate_metadata: bool = False,
 ) -> Dict:
     """Run the full pipeline and return a structured result.
 
@@ -121,6 +148,8 @@ def generate_shorts(
             using maximum action area (optical flow). Prevents mid-shot drift.
         captions: Burn transcript captions into the output clips. Default False.
             Only supported in local mode.
+        generate_metadata: Generate YouTube + TikTok titles, descriptions, and
+            hashtags for each short. Default False.
 
     Returns:
         {
@@ -133,7 +162,7 @@ def generate_shorts(
     """
     mode = (mode or "api").lower()
     if mode == "local":
-        return _run_local(youtube_url, num_clips, aspect_ratio, download_format, language, crop_mode=crop_mode, captions=captions, clip_length=clip_length)
+        return _run_local(youtube_url, num_clips, aspect_ratio, download_format, language, crop_mode=crop_mode, captions=captions, clip_length=clip_length, generate_metadata=generate_metadata)
     if mode == "api":
-        return _run_api(youtube_url, num_clips, aspect_ratio, download_format, language, clip_length=clip_length)
+        return _run_api(youtube_url, num_clips, aspect_ratio, download_format, language, clip_length=clip_length, generate_metadata=generate_metadata)
     raise ValueError(f"Unknown mode: {mode!r}. Use 'api' or 'local'.")
