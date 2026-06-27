@@ -4,6 +4,7 @@ from ..config import (
     LLM_PROVIDER,
     OLLAMA_BASE_URL,
     OLLAMA_MODEL,
+    OLLAMA_NUM_CTX,
     OLLAMA_TIMEOUT,
     OPENAI_MODEL,
     require_gemini_key,
@@ -90,6 +91,7 @@ def call_ollama_llm(prompt: str) -> str:
         "stream": False,
         "options": {
             "temperature": 0.7,
+            "num_ctx": OLLAMA_NUM_CTX,
         },
     }).encode("utf-8")
 

@@ -17,6 +17,144 @@ from typing import Dict, List, Optional, Tuple
 from ..config import LOCAL_OUTPUT_DIR
 
 
+def _burn_captions(
+    video_path: str,
+    out_path: str,
+    segments: List[Dict],
+    highlight_start: float,
+    highlight_end: float,
+) -> str:
+    """Burn transcript captions into the video using ffmpeg drawtext.
+
+    - Max 14 characters per caption chunk.
+    - Show captions ONLY during their actual segment time window.
+    - Each short gets a random color/style.
+    Uses textfile to avoid escaping issues with special characters.
+    """
+    import random
+    import tempfile
+
+    # Filter segments to those overlapping the highlight window
+    relevant = [
+        s for s in segments
+        if float(s["end"]) > highlight_start and float(s["start"]) < highlight_end
+    ]
+    if not relevant:
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", video_path, "-c", "copy", out_path],
+            check=True,
+        )
+        return out_path
+
+    # Random style for this short
+    colors = [
+        "white", "yellow", "#00FFFF", "#FF6B6B", "#FFE66D",
+        "#FF9F43", "#A8E6CF", "#FDFFAB", "#FFB7B2", "#E2F0CB",
+    ]
+    border_colors = ["black", "#2C3E50", "#000000", "#1A1A2E", "#16213E"]
+    box_colors = [
+        "#000000@0.5", "#1A1A2E@0.4", "#2C3E50@0.4",
+        "#000000@0.6", "#1A1A2E@0.3",
+    ]
+    fonts = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+    ]
+    fontfile = next((f for f in fonts if os.path.exists(f)), fonts[0])
+    font_color = random.choice(colors)
+    border_color = random.choice(border_colors)
+    box_color = random.choice(box_colors)
+    y_pos = random.choice(["h*0.82", "h*0.85", "h*0.88"])
+
+    def _chunk_segments(segments: List[Dict], max_chars: int = 12, max_gap: float = 0.3) -> List[Dict]:
+        """Group adjacent word segments into chunks of max_chars, preferring 2 words.
+        
+        Only groups 2 words if:
+        1. Combined length <= max_chars
+        2. Gap between word1 end and word2 start <= max_gap seconds
+        """
+        chunks = []
+        i = 0
+        while i < len(segments):
+            # Try 2 words first
+            if i + 1 < len(segments):
+                two_words = f"{segments[i]['text']} {segments[i+1]['text']}"
+                gap = float(segments[i+1]["start"]) - float(segments[i]["end"])
+                if len(two_words) <= max_chars and gap <= max_gap:
+                    chunks.append({
+                        "text": two_words,
+                        "start": segments[i]["start"],
+                        "end": segments[i+1]["end"],
+                    })
+                    i += 2
+                    continue
+            # Fall back to 1 word
+            chunks.append({
+                "text": segments[i]["text"],
+                "start": segments[i]["start"],
+                "end": segments[i]["end"],
+            })
+            i += 1
+        return chunks
+
+    drawtexts = []
+    temp_files = []
+
+    # Group relevant segments into chunks
+    chunks = _chunk_segments(relevant)
+
+    for chunk in chunks:
+        # Use the ACTUAL segment times — captions appear only when audio happens
+        chunk_start = max(float(chunk["start"]), highlight_start) - highlight_start
+        chunk_end = min(float(chunk["end"]), highlight_end) - highlight_start
+        text = chunk["text"]
+        if not text:
+            continue
+
+        if chunk_end <= chunk_start:
+            continue
+
+        fd, txt_path = tempfile.mkstemp(suffix=".txt", prefix="caption_")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        temp_files.append(txt_path)
+
+        dt = (
+            f"drawtext=fontfile={fontfile}:"
+            f"textfile='{txt_path}':"
+            f"fontcolor={font_color}:fontsize=h/14:"
+            f"borderw=4:bordercolor={border_color}:"
+            f"box=1:boxcolor={box_color}:boxborderw=8:"
+            f"x=(w-text_w)/2:y={y_pos}:"
+            f"enable='between(t\,{chunk_start:.3f}\,{chunk_end:.3f})'"
+        )
+        drawtexts.append(dt)
+
+    vf = ",".join(drawtexts)
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", video_path,
+        "-vf", vf,
+        "-c:a", "copy",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+        out_path,
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        for p in temp_files:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+    return out_path
+
+
+
+
+
 def _ratio(aspect_ratio: str) -> float:
     """Parse '9:16' → 9/16, '1:1' → 1.0."""
     try:
@@ -330,22 +468,36 @@ def crop_clip_local(
     aspect_ratio: str,
     out_path: str,
     crop_mode: str = "face",
+    captions: bool = False,
+    transcript_segments: Optional[List[Dict]] = None,
 ) -> str:
     """Cut + reframe one highlight, returning the local mp4 path.
 
     Args:
         crop_mode: "face" (default) or "shot" (shot-aware action centering).
+        captions: Whether to burn transcript captions into the output.
+        transcript_segments: Required when captions=True — list of {start, end, text}.
     """
     cut_path = out_path + ".cut.mp4"
+    reframe_path = out_path + ".reframe.mp4"
     try:
         _cut_subclip(source_path, start_time, end_time, cut_path)
         if crop_mode == "shot":
-            _reframe_shot_aware(cut_path, out_path, aspect_ratio)
+            _reframe_shot_aware(cut_path, reframe_path, aspect_ratio)
         else:
-            _reframe_vertical(cut_path, out_path, aspect_ratio)
+            _reframe_vertical(cut_path, reframe_path, aspect_ratio)
+
+        if captions and transcript_segments:
+            _burn_captions(reframe_path, out_path, transcript_segments, start_time, end_time)
+        else:
+            os.rename(reframe_path, out_path)
     finally:
         if os.path.exists(cut_path):
             os.remove(cut_path)
+        if os.path.exists(reframe_path) and os.path.exists(out_path) and os.path.samefile(reframe_path, out_path):
+            pass  # already renamed
+        elif os.path.exists(reframe_path):
+            os.remove(reframe_path)
     return out_path
 
 
@@ -355,13 +507,16 @@ def crop_highlights_local(
     aspect_ratio: str = "9:16",
     out_dir: Optional[str] = None,
     crop_mode: str = "face",
+    captions: bool = False,
+    transcript_segments: Optional[List[Dict]] = None,
 ) -> List[Dict]:
     out_dir = out_dir or LOCAL_OUTPUT_DIR
     os.makedirs(out_dir, exist_ok=True)
     results: List[Dict] = []
     for i, h in enumerate(highlights, 1):
         out_path = os.path.join(out_dir, f"short_{i:02d}.mp4")
-        print(f"[clip/local] {i}/{len(highlights)}: {h.get('title', '(untitled)')} [{crop_mode} mode]", flush=True)
+        cap_label = "+captions" if captions else ""
+        print(f"[clip/local] {i}/{len(highlights)}: {h.get('title', '(untitled)')} [{crop_mode} mode{cap_label}]", flush=True)
         try:
             crop_clip_local(
                 source_path,
@@ -370,6 +525,8 @@ def crop_highlights_local(
                 aspect_ratio,
                 out_path,
                 crop_mode=crop_mode,
+                captions=captions,
+                transcript_segments=transcript_segments,
             )
             results.append({**h, "clip_url": out_path})
         except Exception as e:

@@ -131,6 +131,20 @@ python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --mode local --crop-mo
 
 This analyzes motion per shot, finds where the most activity happens, and keeps the crop locked there until the next cut. No mid-shot drift — ideal for stationary shots where you want the action centered per scene.
 
+### Captions (local mode)
+
+Burn transcript captions directly into the output clips. White text with a black outline, bottom-centered, sized automatically to the video height. Default is off.
+
+```bash
+python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --mode local --captions
+```
+
+Combine with other options:
+
+```bash
+python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --mode local --crop-mode shot --captions
+```
+
 ### With options
 
 ```bash
@@ -191,6 +205,7 @@ xargs -a urls.txt -I{} python main.py "{}"
 | `--format` | `720` | Source download resolution: `360` / `480` / `720` / `1080` |
 | `--language` | auto | Force Whisper language code (e.g. `en`) |
 | `--crop-mode` | `face` | Local mode only: `face` (face-tracking) or `shot` (shot-aware action centering) |
+| `--captions` | off | Local mode only: burn transcript captions into the output clips |
 | `--output-json` | — | Dump the full result (transcript + all candidates) to a file |
 
 ### API mode vs Local mode
@@ -276,6 +291,20 @@ Set `LLM_PROVIDER=ollama` to run highlight ranking through any Ollama-compatible
    ```bash
    python main.py "https://www.youtube.com/watch?v=VIDEO_ID" --mode local
    ```
+
+**Context window (`OLLAMA_NUM_CTX`)**
+
+By default the context window is set to **32768 tokens** (the maximum for Qwen 2.5 and most modern models). If you run into VRAM limits, set a lower value in `.env`:
+
+```bash
+OLLAMA_NUM_CTX=16384   # or 8192, 4096, etc.
+```
+
+The value is passed as `num_ctx` in the Ollama `/api/chat` options. You can also set it per-run:
+
+```bash
+OLLAMA_NUM_CTX=8192 python main.py "..." --mode local
+```
 
 **Remote Ollama example** (e.g. on a cloud GPU):
 ```bash

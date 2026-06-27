@@ -21,6 +21,7 @@ def _run_local(
     download_format: str,
     language: Optional[str],
     crop_mode: str = "face",
+    captions: bool = False,
 ) -> Dict:
     from .local.clipper import crop_highlights_local
     from .local.downloader import download_youtube_local
@@ -43,7 +44,10 @@ def _run_local(
     top = sorted(all_highlights, key=lambda h: int(h.get("score", 0)), reverse=True)[:num_clips]
     print(f"[pipeline/local] cropping {len(top)} of {len(all_highlights)} candidates", flush=True)
 
-    shorts = crop_highlights_local(source_path, top, aspect_ratio=aspect_ratio, crop_mode=crop_mode)
+    shorts = crop_highlights_local(
+        source_path, top, aspect_ratio=aspect_ratio, crop_mode=crop_mode,
+        captions=captions, transcript_segments=transcript.get("segments"),
+    )
 
     return {
         "mode": "local",
@@ -96,6 +100,7 @@ def generate_shorts(
     language: Optional[str] = None,
     mode: str = "api",
     crop_mode: str = "face",
+    captions: bool = False,
 ) -> Dict:
     """Run the full pipeline and return a structured result.
 
@@ -110,6 +115,8 @@ def generate_shorts(
         crop_mode: "face" (default) or "shot". Only used in local mode.
             "shot" detects shot boundaries and locks the crop center per shot
             using maximum action area (optical flow). Prevents mid-shot drift.
+        captions: Burn transcript captions into the output clips. Default False.
+            Only supported in local mode.
 
     Returns:
         {
@@ -122,7 +129,7 @@ def generate_shorts(
     """
     mode = (mode or "api").lower()
     if mode == "local":
-        return _run_local(youtube_url, num_clips, aspect_ratio, download_format, language, crop_mode=crop_mode)
+        return _run_local(youtube_url, num_clips, aspect_ratio, download_format, language, crop_mode=crop_mode, captions=captions)
     if mode == "api":
         return _run_api(youtube_url, num_clips, aspect_ratio, download_format, language)
     raise ValueError(f"Unknown mode: {mode!r}. Use 'api' or 'local'.")

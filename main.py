@@ -38,6 +38,12 @@ def main() -> int:
         default="face",
         help="Local mode only: 'face' (default, face-tracking) or 'shot' (shot-aware action centering)",
     )
+    parser.add_argument(
+        "--captions",
+        action="store_true",
+        default=False,
+        help="Burn transcript captions into the output clips (local mode only, default: off)",
+    )
     args = parser.parse_args()
 
     try:
@@ -49,6 +55,7 @@ def main() -> int:
             language=args.language,
             mode=args.mode,
             crop_mode=args.crop_mode,
+            captions=args.captions,
         )
     except Exception as e:
         print(f"\nFAILED: {e}", file=sys.stderr)
